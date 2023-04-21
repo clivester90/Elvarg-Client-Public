@@ -1,156 +1,212 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-import proguard.gradle.ProGuardTask
+/*
+ * Copyright (c) 2019-2020 Owain van Brakel <https://github.com/Owain94>
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-group = "com.runescape"
-version = 1.0
+import org.ajoberstar.grgit.Grgit
 
 buildscript {
     repositories {
-        mavenCentral()
+        mavenLocal()
+        gradlePluginPortal()
+        maven(url = "https://raw.githubusercontent.com/open-osrs/hosting/master")
+        maven(url = "https://repo.runelite.net")
     }
     dependencies {
-        classpath("com.guardsquare:proguard-gradle:7.3.0")
+        classpath("org.ajoberstar.grgit:grgit-core:4.1.0")
+        classpath("com.openosrs:script-assembler-plugin:1.0.1")
+        classpath("com.openosrs:injector-plugin:2.0.2")
     }
 }
-
 
 plugins {
-    kotlin("jvm")
+    id("org.ajoberstar.grgit") version "4.1.0"
+
     application
-    id("org.openjfx.javafxplugin")
-    id("com.github.johnrengelman.shadow")
-    id("com.mark.bootstrap.bootstrap")
 }
 
-kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(11))
-    }
+val localGitCommit: String = try {
+    val projectPath = rootProject.projectDir.absolutePath
+    Grgit.open(mapOf("dir" to projectPath)).head().id
+} catch (_: Exception) {
+    "n/a"
 }
 
-javafx {
-    modules("javafx.base")
+allprojects {
+    group = "com.openosrs"
+    version = "1.0"
+    apply<MavenPublishPlugin>()
 }
 
-configure<com.mark.bootstrap.BootstrapPluginExtension> {
-    uploadType.set(com.mark.bootstrap.UploadType.FTP)
-    releaseType.set("normal")
-    baseLink.set("https://urllink.com/")
-    customRepo.set("https://urllink.com/client/repo/")
-    passiveMode.set(false)
-}
+subprojects {
+    repositories {
+        if (System.getenv("JITPACK") != null) {
+            mavenLocal()
+        }
 
-dependencies {
-    val lombokVersion = "1.18.24"
-    val slf4jVersion = "1.7.36"
-    val lwjglVersion = "3.3.1"
-    val lwjglClassifiers = arrayOf(
-        "natives-linux",
-        "natives-windows-x86", "natives-windows",
-        "natives-macos", "natives-macos-arm64"
-    )
-    val joglVersion = "2.4.0-rc-20220318"
-    val joglClassifiers = arrayOf(
-        "natives-linux-amd64",
-        "natives-windows-amd64", "natives-windows-i586",
-        "natives-macosx-universal"
-    )
+        exclusiveContent {
+            forRepository {
+                maven {
+                    url = uri("https://jitpack.io")
+                }
+            }
+            filter {
+                includeGroup("com.github.petitparser.java-petitparser")
+                includeModule("com.github.petitparser", "java-petitparser")
+            }
+        }
 
-    annotationProcessor(group = "org.projectlombok", name = "lombok", version = lombokVersion)
+        exclusiveContent {
+            forRepository {
+                maven {
+                    url = uri("https://repo.runelite.net")
+                }
+            }
+            filter {
+                includeGroup("net.runelite.rs")
+                includeModule("net.runelite", "discord")
+                includeModule("net.runelite", "orange-extensions")
+            }
+        }
+        exclusiveContent {
+            forRepository {
+                maven {
+                    url = uri("https://raw.githubusercontent.com/open-osrs/hosting/master")
+                }
+            }
+            filter {
+                includeModule("net.runelite", "fernflower")
+            }
+        }
 
-    compileOnly(group = "javax.annotation", name = "javax.annotation-api", version = "1.3.2")
-    compileOnly(group = "org.projectlombok", name = "lombok", version = lombokVersion)
-    compileOnly(group = "net.runelite", name = "orange-extensions", version = "1.0")
-
-    implementation(group = "ch.qos.logback", name = "logback-classic", version = "1.2.9")
-    implementation(group = "com.google.code.gson", name = "gson", version = "2.8.9")
-    implementation(group = "com.google.guava", name = "guava", version = "30.1.1-jre") {
-        exclude(group = "com.google.code.findbugs", module = "jsr305")
-        exclude(group = "com.google.errorprone", module = "error_prone_annotations")
-        exclude(group = "com.google.j2objc", module = "j2objc-annotations")
-        exclude(group = "org.codehaus.mojo", module = "animal-sniffer-annotations")
-    }
-    implementation(group = "com.google.inject", name = "guice", version = "5.0.1")
-    implementation(group = "com.google.protobuf", name = "protobuf-javalite", version = "3.21.7")
-    implementation(group = "com.jakewharton.rxrelay3", name = "rxrelay", version = "3.0.1")
-    implementation(group = "com.squareup.okhttp3", name = "okhttp", version = "4.9.1")
-    implementation(group = "io.reactivex.rxjava3", name = "rxjava", version = "3.1.2")
-    implementation(group = "org.jgroups", name = "jgroups", version = "5.2.2.Final")
-    implementation(group = "net.java.dev.jna", name = "jna", version = "5.9.0")
-    implementation(group = "net.java.dev.jna", name = "jna-platform", version = "5.9.0")
-    implementation(group = "net.runelite", name = "discord", version = "1.4")
-    implementation(group = "net.runelite.pushingpixels", name = "substance", version = "8.0.02")
-    implementation(group = "net.sf.jopt-simple", name = "jopt-simple", version = "5.0.4")
-    implementation(group = "org.madlonkay", name = "desktopsupport", version = "0.6.0")
-    implementation(group = "org.apache.commons", name = "commons-text", version = "1.10.0")
-    implementation(group = "org.apache.commons", name = "commons-csv", version = "1.9.0")
-    implementation(group = "commons-io", name = "commons-io", version = "2.8.0")
-    implementation(group = "org.jetbrains", name = "annotations", version = "22.0.0")
-    implementation(group = "com.github.zafarkhaja", name = "java-semver", version = "0.9.0")
-    implementation(group = "org.slf4j", name = "slf4j-api", version = slf4jVersion)
-    implementation("com.beust:klaxon:5.5")
-    // implementation(group = "com.google.archivepatcher", name = "archive-patch-applier", version= "1.0.4")
-
-    implementation(group = "net.runelite.gluegen", name = "gluegen-rt", version = joglVersion)
-    implementation(group = "net.runelite.jogl", name = "jogl-rl", version = joglVersion)
-    implementation(group = "net.runelite.jogl", name = "jogl-gldesktop-dbg", version = joglVersion)
-    implementation(group = "net.runelite.jocl", name = "jocl", version = "1.0")
-
-    implementation(group = "net.runelite", name = "rlawt", version = "1.3")
-
-    implementation(group = "org.lwjgl", name = "lwjgl", version = lwjglVersion)
-    implementation(group = "org.lwjgl", name = "lwjgl-opengl", version = lwjglVersion)
-    for (classifier in lwjglClassifiers) {
-        implementation(group = "org.lwjgl", name = "lwjgl", version = lwjglVersion, classifier = classifier)
-        implementation(group = "org.lwjgl", name = "lwjgl-opengl", version = lwjglVersion, classifier = classifier)
+        mavenCentral()
     }
 
-    runtimeOnly(group = "net.runelite.pushingpixels", name = "trident", version = "1.5.00")
+    apply<JavaLibraryPlugin>()
+    //apply<MavenPublishPlugin>()
 
-    for (classifier in joglClassifiers) {
-        runtimeOnly(group = "net.runelite.jogl", name = "jogl-rl", version = joglVersion, classifier = classifier)
-        runtimeOnly(group = "net.runelite.gluegen", name = "gluegen-rt", version = joglVersion, classifier = classifier)
+    project.extra["gitCommit"] = localGitCommit
+    project.extra["rootPath"] = rootDir.toString().replace("\\", "/")
+
+    if (this.name != "runescape-client") {
+        apply<CheckstylePlugin>()
+
+        configure<CheckstyleExtension> {
+            maxWarnings = 0
+            toolVersion = "9.1"
+            isShowViolations = true
+            isIgnoreFailures = false
+        }
     }
 
-    runtimeOnly(group = "net.runelite.jocl", name = "jocl", version = "1.0", classifier = "macos-x64")
-    runtimeOnly(group = "net.runelite.jocl", name = "jocl", version = "1.0", classifier = "macos-arm64")
+    configure<PublishingExtension> {
+        repositories {
+            maven {
+                url = uri("$buildDir/repo")
+            }
+            if (System.getenv("REPO_URL") != null) {
+                maven {
+                    url = uri(System.getenv("REPO_URL"))
+                    credentials {
+                        username = System.getenv("REPO_USERNAME")
+                        password = System.getenv("REPO_PASSWORD")
+                    }
+                }
+            }
+        }
+        publications {
+            register("mavenJava", MavenPublication::class) {
+                from(components["java"])
+            }
+        }
+    }
 
-    testAnnotationProcessor(group = "org.projectlombok", name = "lombok", version = lombokVersion)
-    testCompileOnly(group = "org.projectlombok", name = "lombok", version = lombokVersion)
+    tasks {
+        test {
+            exclude("**/*")
+        }
 
-    testImplementation(group = "com.google.inject.extensions", name = "guice-grapher", version = "4.1.0")
-    testImplementation(group = "com.google.inject.extensions", name = "guice-testlib", version = "4.1.0")
-    testImplementation(group = "org.hamcrest", name = "hamcrest-library", version = "1.3")
-    testImplementation(group = "junit", name = "junit", version = "4.13.1")
-    testImplementation(group = "org.mockito", name = "mockito-core", version = "3.1.0")
-    testImplementation(group = "org.mockito", name = "mockito-inline", version = "3.1.0")
-    testImplementation(group = "com.squareup.okhttp3", name = "mockwebserver", version = "4.9.1")
-    testImplementation(group = "org.slf4j", name = "slf4j-api", version = slf4jVersion)
+        java {
+            sourceCompatibility = JavaVersion.VERSION_11
+            targetCompatibility = JavaVersion.VERSION_11
+        }
+
+        withType<AbstractArchiveTask> {
+            isPreserveFileTimestamps = false
+            isReproducibleFileOrder = true
+            dirMode = 493
+            fileMode = 420
+        }
+
+        withType<JavaCompile> {
+            options.encoding = "UTF-8"
+        }
+
+        withType<Checkstyle> {
+            group = "verification"
+
+            exclude("**/ScriptVarType.java")
+            exclude("**/LayoutSolver.java")
+            exclude("**/RoomType.java")
+        }
+
+        withType<Jar> {
+            doLast {
+                // sign jar
+                if (System.getProperty("signKeyStore") != null) {
+                    // ensure ant is initialized so we can copy the project variable later
+                    ant.invokeMethod("echo", mapOf("message" to "initializing ant"))
+
+                    for (file in outputs.files) {
+                        org.apache.tools.ant.taskdefs.SignJar().apply {
+                            // why is this required
+                            project = ant.project
+
+                            setKeystore(System.getProperty("signKeyStore"))
+                            setStorepass(System.getProperty("signStorePass"))
+                            setAlias(System.getProperty("signAlias"))
+                            setJar(file)
+                            setSignedjar(file)
+                            execute()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    configurations.compileOnly.get().extendsFrom(configurations["annotationProcessor"])
 }
 
 application {
     mainClass.set("net.runelite.client.RuneLite")
 }
 
-
 tasks {
-    jar {
-        manifest {
-            attributes["Implementation-Title"] = project.name
-            attributes["Implementation-Version"] = "${project.version}"
-            attributes["Main-Class"] = "net.runelite.client.RuneLite"
-        }
-    }
-}
+    named<JavaExec>("run") {
+        group = "openosrs"
 
-tasks.withType<JavaCompile>().configureEach {
-    options.isWarnings = false
-    options.isDeprecation = false
-    options.isIncremental = true
-}
-
-tasks.withType<KotlinCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "11"
+        classpath = project(":runelite").sourceSets.main.get().runtimeClasspath
+        enableAssertions = true
     }
 }
